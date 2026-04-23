@@ -76,7 +76,10 @@ def test_validate_image_params_rejects_unknown() -> None:
         config.validate_image_params("21:9")
 
 
-def test_config_from_env_loads_key_and_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_config_from_env_loads_key_and_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     out = tmp_path / "gen"
     monkeypatch.setenv("GEMINI_API_KEY", "test-key-abc")
     monkeypatch.setenv("OUTPUT_DIR", str(out))
@@ -89,6 +92,7 @@ def test_config_from_env_loads_key_and_dir(monkeypatch: pytest.MonkeyPatch, tmp_
 def test_config_from_env_creates_nested_dir(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     out = tmp_path / "a" / "b" / "c"
     monkeypatch.setenv("GEMINI_API_KEY", "k")
     monkeypatch.setenv("OUTPUT_DIR", str(out))
@@ -97,6 +101,7 @@ def test_config_from_env_creates_nested_dir(
 
 
 def test_config_from_env_defaults_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("GEMINI_API_KEY", "k")
     monkeypatch.delenv("OUTPUT_DIR", raising=False)
@@ -104,13 +109,81 @@ def test_config_from_env_defaults_dir(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert c.output_dir == (tmp_path / "generated").resolve()
 
 
-def test_config_from_env_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_from_env_missing_key_signposts_init(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="GEMINI_API_KEY"):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="visualgen-mcp init"):
         config.Config.from_env()
 
 
-def test_config_from_env_empty_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_from_env_empty_key_signposts_init(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "   ")
-    with pytest.raises(ValueError, match="GEMINI_API_KEY"):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="visualgen-mcp init"):
         config.Config.from_env()
+
+
+def test_config_from_env_uses_profile_api_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from visualgen_mcp import profile
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)
+    profile.save_profile(profile.Profile(api_key="profile-key"))
+    c = config.Config.from_env()
+    assert c.api_key == "profile-key"
+
+
+def test_config_from_env_env_overrides_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from visualgen_mcp import profile
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("GEMINI_API_KEY", "env-key")
+    monkeypatch.chdir(tmp_path)
+    profile.save_profile(profile.Profile(api_key="profile-key"))
+    c = config.Config.from_env()
+    assert c.api_key == "env-key"
+
+
+def test_config_from_env_defaults_from_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from visualgen_mcp import profile
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.chdir(tmp_path)
+    profile.save_profile(
+        profile.Profile(
+            api_key="k",
+            video_tier="standard",
+            image_model="imagen",
+            video_aspect_ratio="9:16",
+            image_aspect_ratio="1:1",
+        )
+    )
+    c = config.Config.from_env()
+    assert c.default_video_tier == "standard"
+    assert c.default_image_model == "imagen"
+    assert c.default_video_aspect_ratio == "9:16"
+    assert c.default_image_aspect_ratio == "1:1"
+
+
+def test_config_from_env_hardcoded_defaults_when_no_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    c = config.Config.from_env()
+    assert c.default_video_tier == "fast"
+    assert c.default_image_model == "nano-banana"
+    assert c.default_video_aspect_ratio == "16:9"
+    assert c.default_image_aspect_ratio == "16:9"

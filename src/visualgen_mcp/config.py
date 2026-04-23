@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from visualgen_mcp import profile as profile_mod
+
 VIDEO_MODELS: dict[str, str] = {
     "lite": "veo-3.1-lite-generate-preview",
     "fast": "veo-3.1-fast-generate-preview",
@@ -26,29 +28,56 @@ DEFAULT_VIDEO_DURATION_SECONDS: int = 8
 
 @dataclass(frozen=True)
 class Config:
-    """Runtime configuration loaded from the environment."""
+    """Runtime configuration resolved from env > profile > hard-coded defaults."""
 
     api_key: str
     output_dir: Path
+    default_video_tier: str
+    default_image_model: str
+    default_video_aspect_ratio: str
+    default_image_aspect_ratio: str
 
     @classmethod
     def from_env(cls) -> Config:
-        """Build a Config from `GEMINI_API_KEY` and `OUTPUT_DIR` env vars.
+        """Resolve config from env > profile > hard-coded defaults.
 
-        Creates `output_dir` if it does not exist. Raises `ValueError` if
-        `GEMINI_API_KEY` is missing or empty.
+        Creates `output_dir` if it does not exist. Raises `ValueError` if no
+        API key resolves from any source.
         """
+        prof = profile_mod.load_profile()
+
         api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        if not api_key and prof is not None and prof.api_key:
+            api_key = prof.api_key.strip()
         if not api_key:
             raise ValueError(
-                "GEMINI_API_KEY environment variable is not set. "
-                "Get a key at https://aistudio.google.com/apikey and add it "
-                "to your .env file or your MCP client's env config."
+                "No Gemini API key found. Run `visualgen-mcp init` to set up "
+                "your profile, or set `GEMINI_API_KEY` in your environment "
+                "(e.g. in `.env` or your `.mcp.json` env block)."
             )
-        raw_dir = os.environ.get("OUTPUT_DIR", "./generated").strip() or "./generated"
+
+        raw_dir = os.environ.get("OUTPUT_DIR", "").strip()
+        if not raw_dir and prof is not None and prof.output_dir:
+            raw_dir = prof.output_dir
+        if not raw_dir:
+            raw_dir = "./generated"
         output_dir = Path(raw_dir).expanduser().resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
-        return cls(api_key=api_key, output_dir=output_dir)
+
+        return cls(
+            api_key=api_key,
+            output_dir=output_dir,
+            default_video_tier=(prof.video_tier if prof and prof.video_tier else "fast"),
+            default_image_model=(
+                prof.image_model if prof and prof.image_model else "nano-banana"
+            ),
+            default_video_aspect_ratio=(
+                prof.video_aspect_ratio if prof and prof.video_aspect_ratio else "16:9"
+            ),
+            default_image_aspect_ratio=(
+                prof.image_aspect_ratio if prof and prof.image_aspect_ratio else "16:9"
+            ),
+        )
 
 
 def resolve_video_model(tier: str) -> str:
