@@ -308,3 +308,23 @@ def test_run_skill_install_overwrites_when_confirmed(
     source = wizard._skill_source_path()
     assert source is not None
     assert (skill_root / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()
+
+
+def test_install_skill_noop_when_source_equals_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Editable install: running `init` inside the repo makes source and
+    target resolve to the same directory. install_skill must not delete the
+    source during copy."""
+    skill_dir = tmp_path / ".claude" / "skills" / "visualgen"
+    (skill_dir / "templates").mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("canonical")
+    (skill_dir / "templates" / "hero.md").write_text("t")
+
+    monkeypatch.setattr(wizard, "_skill_source_path", lambda: skill_dir)
+
+    result = wizard.install_skill(tmp_path, overwrite=True)
+
+    assert result == "installed"
+    assert (skill_dir / "SKILL.md").read_text() == "canonical"
+    assert (skill_dir / "templates" / "hero.md").read_text() == "t"

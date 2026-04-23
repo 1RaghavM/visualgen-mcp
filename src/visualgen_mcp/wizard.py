@@ -178,6 +178,12 @@ def install_skill(dest_root: Path, *, overwrite: bool) -> str:
     if source is None:
         return "error:cannot locate packaged skill data"
 
+    # Editable install: running `init` from inside the cloned repo makes
+    # source and target resolve to the same path. rmtree(target) would
+    # delete the source before _copy_tree reads from it.
+    if isinstance(source, Path) and source.resolve() == target.resolve():
+        return "installed"
+
     try:
         if target.exists():
             shutil.rmtree(target)
