@@ -12,7 +12,7 @@ I'm open-sourcing it because other people are solving the same problem, and nobo
 
 Claude Code generating visuals with visualgen-mcp and wiring them into the page.
 
-https://github.com/user-attachments/assets/bc9ed042-f528-4faf-aebd-f348e8a71d1b
+https://github.com/user-attachments/assets/34d25755-cd4c-47b0-a0cb-056b9ed8b783
 
 ## What it does
 
