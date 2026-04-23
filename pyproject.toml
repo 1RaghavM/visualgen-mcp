@@ -48,6 +48,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/visualgen_mcp"]
 
+[tool.hatch.build.targets.wheel.force-include]
+".claude/skills/visualgen" = "visualgen_mcp/_skill_data"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

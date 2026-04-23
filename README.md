@@ -91,6 +91,19 @@ The server reads your API key and defaults from `~/.config/visualgen-mcp/config.
 
 Run `/mcp` inside Claude Code to confirm the server is connected. You should see `visualgen` listed with six tools.
 
+### The `/visualgen` skill
+
+The server ships with a Claude Code skill that teaches Claude when to use each tool, how to structure prompts for common web-design asks, and when to confirm costs with you. If you ran `visualgen-mcp init`, it already offered to install it. Otherwise:
+
+```bash
+cd your-project
+cp -r /path/to/visualgen-mcp/.claude/skills/visualgen ./.claude/skills/visualgen
+```
+
+Once installed, `/visualgen hero video, modern SaaS landing, calm mood` kicks off the whole pipeline in one shot — Claude picks the template, builds the prompt, submits the job, and wires the returned file into your code. You can also just ask for visuals in natural language — the skill auto-loads whenever Claude is about to call a visualgen-mcp tool.
+
+The skill is opinionated about cost: Veo `standard` and any image-to-video call always ask you to confirm before spending. Everything else — all image generation plus Veo `lite`/`fast` text-to-video — proceeds silently.
+
 ## Use with other MCP clients
 
 Claude Desktop uses the same pattern. Add an entry under `mcpServers` in `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Any stdio-transport MCP client that supports tool calls works. There is no HTTP or auth layer — the server is intended for local use.

@@ -76,9 +76,7 @@ def test_validate_image_params_rejects_unknown() -> None:
         config.validate_image_params("21:9")
 
 
-def test_config_from_env_loads_key_and_dir(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_config_from_env_loads_key_and_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     out = tmp_path / "gen"
     monkeypatch.setenv("GEMINI_API_KEY", "test-key-abc")

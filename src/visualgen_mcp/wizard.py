@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import getpass
 import json
+import shutil
 import sys
+from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 from visualgen_mcp import profile as profile_mod
@@ -105,14 +108,99 @@ _SNIPPET: dict[str, object] = {
 }
 
 
+def _skill_source_path() -> Traversable | None:
+    """Locate the packaged skill tree.
+
+    Returns a `Traversable` rooted at a directory containing `SKILL.md`, or
+    None if neither the packaged resource nor the repo-root fallback resolves.
+
+    In a wheel install, `importlib.resources.files("visualgen_mcp") /
+    "_skill_data"` resolves to a directory populated by hatch's
+    `force-include`. It may be a real filesystem path (unpacked wheel) or a
+    zip-backed resource (e.g. when run under `uvx`). We return the
+    `Traversable` directly — callers use only `is_dir()`, `iterdir()`,
+    `read_bytes()`, and `/`, which work uniformly across both backings.
+
+    In an editable install (how `uv run pytest` sees the code), `_skill_data`
+    is not synthesized, so we fall back to walking up from the package
+    directory to the repo root's `.claude/skills/visualgen`.
+    """
+    try:
+        packaged = resources.files("visualgen_mcp") / "_skill_data"
+    except (ModuleNotFoundError, FileNotFoundError):
+        packaged = None
+
+    if packaged is not None and packaged.is_dir() and (packaged / "SKILL.md").is_file():
+        return packaged
+
+    # This is the editable-install fallback; packaged-resource path is the
+    # primary. Missing SKILL.md below is not an error — it means we're in a
+    # wheel install and the first branch already returned.
+    pkg_dir = Path(__file__).resolve().parent
+    # pkg_dir = .../src/visualgen_mcp; repo root = .../ (parent of src/)
+    repo_root = pkg_dir.parent.parent
+    fallback = repo_root / ".claude" / "skills" / "visualgen"
+    if fallback.is_dir() and (fallback / "SKILL.md").is_file():
+        return fallback
+
+    return None
+
+
+def _copy_tree(src: Traversable, dest: Path) -> None:
+    """Recursively copy `src` into `dest`, creating dirs as needed.
+
+    `src` is typed as `Traversable` so this works uniformly for both real
+    filesystem paths (`pathlib.Path`, which is structurally compatible) and
+    zip-backed packaged resources (where a plain `Path(str(...))` coercion
+    would silently break).
+    """
+    if src.is_dir():
+        dest.mkdir(parents=True, exist_ok=True)
+        for child in src.iterdir():
+            _copy_tree(child, dest / child.name)
+    else:
+        dest.write_bytes(src.read_bytes())
+
+
+def install_skill(dest_root: Path, *, overwrite: bool) -> str:
+    """Copy the packaged skill tree to `dest_root / .claude/skills/visualgen`.
+
+    Returns a status string:
+      - "installed" on success
+      - "skipped" when dest exists and overwrite is False
+      - "error:<reason>" on any failure (missing resource, permissions, etc.)
+    """
+    target = dest_root / ".claude" / "skills" / "visualgen"
+    if target.exists() and not overwrite:
+        return "skipped"
+
+    source = _skill_source_path()
+    if source is None:
+        return "error:cannot locate packaged skill data"
+
+    try:
+        if target.exists():
+            shutil.rmtree(target)
+        _copy_tree(source, target)
+    except Exception as exc:
+        # Broad catch: `_copy_tree` walks a `Traversable`, which may be a
+        # zip-backed resource under `uvx`; those can raise non-OSError types
+        # (KeyError, BadZipFile, etc.) that must not crash the user's setup
+        # flow. Any failure also leaves `target` half-populated, so wipe it
+        # so the next wizard run starts from a clean slate instead of
+        # offering to "overwrite" a broken install.
+        shutil.rmtree(target, ignore_errors=True)
+        return f"error:{exc}"
+
+    return "installed"
+
+
 def run() -> int:
     """Run the interactive setup. Returns an exit code."""
     require_tty()
 
     path = profile_mod.config_path()
-    if path.exists() and not confirm(
-        f"Config exists at {path}. Overwrite?", default=False
-    ):
+    if path.exists() and not confirm(f"Config exists at {path}. Overwrite?", default=False):
         print("Aborted. No changes made.")
         return 0
 
@@ -126,9 +214,7 @@ def run() -> int:
         "Output directory for generated images/videos",
         default="~/visualgen-output",
     )
-    video_tier = prompt_choice(
-        "Default video tier", choices=VIDEO_TIER_CHOICES, default="fast"
-    )
+    video_tier = prompt_choice("Default video tier", choices=VIDEO_TIER_CHOICES, default="fast")
     image_model = prompt_choice(
         "Default image model", choices=IMAGE_MODEL_CHOICES, default="nano-banana"
     )
@@ -161,9 +247,7 @@ def run() -> int:
         result = merge_mcp_json(mcp_path, entry, replace=False)
         if result == "skipped":
             existing = json.loads(mcp_path.read_text())["mcpServers"]["visualgen"]
-            print(
-                f"An entry for 'visualgen' already exists:\n{json.dumps(existing, indent=2)}"
-            )
+            print(f"An entry for 'visualgen' already exists:\n{json.dumps(existing, indent=2)}")
             if confirm("Replace?", default=False):
                 result = merge_mcp_json(mcp_path, entry, replace=True)
         if result in {"created", "added", "replaced"}:
@@ -175,6 +259,28 @@ def run() -> int:
             )
         elif result == "skipped":
             print("Left existing entry untouched.\n")
+
+    if confirm(
+        "Install the /visualgen skill into .claude/skills/ in this project?",
+        default=True,
+    ):
+        target_root = Path.cwd()
+        skill_target = target_root / ".claude" / "skills" / "visualgen"
+        proceed = True
+        if skill_target.exists():
+            print(f"{skill_target} already exists.")
+            proceed = confirm("Overwrite?", default=False)
+            if not proceed:
+                print("Left existing skill untouched.\n")
+        if proceed:
+            result = install_skill(target_root, overwrite=True)
+            if result == "installed":
+                print(f"Installed /visualgen skill at {skill_target}\n")
+            elif result == "skipped":
+                print(f"Skipped: {skill_target} already exists.\n")
+            else:
+                reason = result.removeprefix("error:")
+                print(f"Could not install skill: {reason}\n")
 
     print("Paste this into any other MCP client config:\n")
     print(json.dumps(_SNIPPET, indent=2))

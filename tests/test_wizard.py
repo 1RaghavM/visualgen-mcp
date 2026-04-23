@@ -161,7 +161,7 @@ def test_run_defaults_path_writes_profile_and_prints_snippet(
     monkeypatch.chdir(tmp_path)
 
     _feed_getpass(monkeypatch, "my-key")
-    _feed(monkeypatch, ["", "", "", "", "", "n"])
+    _feed(monkeypatch, ["", "", "", "", "", "n", "n"])
 
     exit_code = wizard.run()
     assert exit_code == 0
@@ -188,7 +188,7 @@ def test_run_merges_mcp_json_when_user_says_yes(
     monkeypatch.chdir(tmp_path)
 
     _feed_getpass(monkeypatch, "k")
-    _feed(monkeypatch, ["", "", "", "", "", "y"])
+    _feed(monkeypatch, ["", "", "", "", "", "y", "n"])
 
     wizard.run()
     mcp_path = tmp_path / ".mcp.json"
@@ -221,3 +221,90 @@ def test_run_exits_1_when_not_tty(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(SystemExit) as exc:
         wizard.run()
     assert exc.value.code == 1
+
+
+def test_run_copies_skill_when_user_says_yes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
+    _feed_getpass(monkeypatch, "k")
+    _feed(monkeypatch, ["", "", "", "", "", "n", "y"])
+
+    wizard.run()
+
+    skill_root = tmp_path / ".claude" / "skills" / "visualgen"
+    assert (skill_root / "SKILL.md").exists()
+    assert (skill_root / "templates" / "hero-video.md").exists()
+    assert (skill_root / "templates" / "og-social-card.md").exists()
+    assert (skill_root / "reference" / "prompt-anatomy.md").exists()
+    assert (skill_root / "reference" / "cost-cheatsheet.md").exists()
+
+    # Byte-for-byte match against whichever source the wizard actually read from
+    # (packaged resource in wheel installs, repo-root fallback in editable).
+    source = wizard._skill_source_path()
+    assert source is not None
+    assert (skill_root / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()
+
+
+def test_run_skips_skill_when_user_says_no(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
+    _feed_getpass(monkeypatch, "k")
+    _feed(monkeypatch, ["", "", "", "", "", "n", "n"])
+
+    wizard.run()
+
+    skill_root = tmp_path / ".claude" / "skills" / "visualgen"
+    assert not skill_root.exists(), "skill must not be installed when user declines"
+
+
+def test_run_skill_install_skips_when_dest_exists_and_no_overwrite(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
+    skill_root = tmp_path / ".claude" / "skills" / "visualgen"
+    skill_root.mkdir(parents=True)
+    sentinel = skill_root / "SKILL.md"
+    sentinel.write_text("DO NOT OVERWRITE")
+
+    _feed_getpass(monkeypatch, "k")
+    _feed(monkeypatch, ["", "", "", "", "", "n", "y", "n"])
+
+    wizard.run()
+
+    assert sentinel.read_text() == "DO NOT OVERWRITE"
+
+
+def test_run_skill_install_overwrites_when_confirmed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
+    skill_root = tmp_path / ".claude" / "skills" / "visualgen"
+    skill_root.mkdir(parents=True)
+    (skill_root / "SKILL.md").write_text("stale")
+
+    _feed_getpass(monkeypatch, "k")
+    _feed(monkeypatch, ["", "", "", "", "", "n", "y", "y"])
+
+    wizard.run()
+
+    source = wizard._skill_source_path()
+    assert source is not None
+    assert (skill_root / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()
