@@ -58,45 +58,36 @@ uv run python -m visualgen_mcp
 
 ## Configure
 
-Get a Gemini API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Veo requires a paid plan; Imagen and Nano Banana can be used on the free tier but with stricter rate limits.
-
-Either export it:
+Run the interactive setup once. It saves your profile to `~/.config/visualgen-mcp/config.toml` (chmod 600) and optionally wires up `.mcp.json` in the current project directory.
 
 ```bash
-export GEMINI_API_KEY=your_key
-export OUTPUT_DIR=./generated   # optional; defaults to ./generated
+uvx visualgen-mcp init
 ```
 
-Or drop it in `.env` alongside your project:
+You'll be prompted for:
 
-```
-GEMINI_API_KEY=your_key
-OUTPUT_DIR=./generated
-```
+- **Gemini API key** — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Veo requires a paid plan; Imagen and Nano Banana work on the free tier but with stricter rate limits.
+- **Output directory** — where generated PNGs and MP4s land. Defaults to `~/visualgen-output`. The server creates it if it doesn't exist, and tool responses return absolute paths so Claude can reference the files in the code it writes.
+- **Default video tier, image model, and aspect ratios** — used when Claude calls a tool without specifying these.
 
-`OUTPUT_DIR` is where generated PNGs and MP4s land. The server creates it if it doesn't exist. Paths are returned as absolute paths in tool responses so Claude can reference them in the code it writes.
+Re-run `visualgen-mcp init` any time to update the profile. Per-project overrides still work: a `GEMINI_API_KEY` or `OUTPUT_DIR` set in a local `.env` file or in `.mcp.json`'s `env` block takes precedence over the profile.
 
 ## Use with Claude Code
 
-Add this to `.mcp.json` at the root of your project:
+Either run `visualgen-mcp init` inside your project (it offers to write this for you), or add this to `.mcp.json` at the root of your project:
 
 ```json
 {
   "mcpServers": {
     "visualgen": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "visualgen_mcp"],
-      "cwd": "/absolute/path/to/visualgen-mcp",
-      "env": {
-        "GEMINI_API_KEY": "your_key",
-        "OUTPUT_DIR": "./generated"
-      }
+      "command": "uvx",
+      "args": ["visualgen-mcp"]
     }
   }
 }
 ```
 
-Once `visualgen-mcp` is published to PyPI, swap the command for `uvx visualgen-mcp` and drop `cwd`. See [.mcp.json.example](.mcp.json.example) for both variants.
+The server reads your API key and defaults from `~/.config/visualgen-mcp/config.toml`. If you want to override them for a specific project, set `GEMINI_API_KEY` or `OUTPUT_DIR` in `.mcp.json`'s `env` block — env vars take precedence over the profile.
 
 Run `/mcp` inside Claude Code to confirm the server is connected. You should see `visualgen` listed with six tools.
 
