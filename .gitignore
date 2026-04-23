@@ -39,3 +39,6 @@ htmlcov/
 
 # Generated outputs
 generated/
+
+# Claude Code worktree pointers (local-machine state)
+.claude/worktrees/
