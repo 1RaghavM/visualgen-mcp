@@ -19,7 +19,7 @@ You are about to call any of the visualgen-mcp tools (`submit_video`, `check_vid
   - Inline content illustration → `4:3` or `3:4`
   - OG / Twitter card → closest to 16:9 (native is 1200×630; the server doesn't support 1.91:1 so use `16:9` and crop in CSS)
 - **Model tier — image.** Draft with `nano-banana` (`$0.039`/image). Upgrade to `imagen` when you need a `negative_prompt` or higher fidelity.
-- **Model tier — video.** Draft with `lite` (`$0.05–$0.08`/sec). Ship with `fast` (`$0.10–$0.12`/sec at 720p/1080p). Only use `standard` (`$0.40`/sec) when the draft has proved the concept and the user has approved the higher cost.
+- **Model tier — video.** Draft with `lite` (`$0.05–$0.08`/sec, 720p/1080p only — 4k is unsupported on this tier). Ship with `fast` (`$0.10–$0.12`/sec at 720p/1080p, `$0.30`/sec at 4k). Only use `standard` (`$0.40`/sec at 720p/1080p, `$0.60`/sec at 4k) when the draft has proved the concept and the user has approved the higher cost.
 - **`negative_prompt`.** Nano Banana ignores it. Imagen and Veo honor it. Use it when drafts keep including a specific unwanted element (text overlays, watermarks, specific colors, extra limbs, motion blur).
 - **Image-to-video.** Pass `image_path` to `submit_video` when you want motion that matches an existing still — typically after generating a hero image and wanting a matching loop variant.
 
@@ -35,7 +35,7 @@ You are about to call any of the visualgen-mcp tools (`submit_video`, `check_vid
 4. **Batch gates.** If you plan to submit 2+ gated calls in one response (variations), show total cost once, gate once, submit all on confirmation.
 5. **Poll politely.** After `submit_video`, call `check_video` at ~20s intervals. Typical completion is 30–120s. Don't tight-loop.
 6. **Reference returned paths directly.** `check_video` and `generate_image` return absolute paths. Use them as-is in the code you write — don't copy, don't rename. The server put them in the user's configured `OUTPUT_DIR` on purpose.
-7. **Iterate cheap first.** Always generate drafts at `lite` / `nano-banana` / `imagen-fast`, show the user, then re-run at higher tier only after concept approval.
+7. **Iterate cheap first.** Always generate drafts at `lite` (video) or `nano-banana` (image), show the user, then re-run at higher tier only after concept approval.
 8. **On `failed`.** Read the error. If it's a content-filter rejection, rewrite the prompt (remove brand names, specific people, potentially sensitive subjects) and resubmit. Don't retry the same prompt — it will just fail again.
 
 ## Tool reference
