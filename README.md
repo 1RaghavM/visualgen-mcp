@@ -8,6 +8,10 @@ I was building websites with Claude Code and kept hitting the same gap. Claude w
 
 I'm open-sourcing it because other people are solving the same problem, and nobody should have to build this twice.
 
+## Demo
+
+[Watch a short demo](docs/demo.mp4) — Claude Code generating an image with visualgen-mcp and wiring it into the page.
+
 ## What it does
 
 Six tools, exposed over stdio:
