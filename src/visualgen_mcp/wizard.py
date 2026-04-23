@@ -7,6 +7,7 @@ import json
 import shutil
 import sys
 from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 from visualgen_mcp import profile as profile_mod
@@ -107,34 +108,34 @@ _SNIPPET: dict[str, object] = {
 }
 
 
-def _skill_source_path() -> Path | None:
+def _skill_source_path() -> Traversable | None:
     """Locate the packaged skill tree.
 
-    Returns the path to a real directory containing `SKILL.md`, or None if
-    neither the packaged resource nor the repo-root fallback resolves.
+    Returns a `Traversable` rooted at a directory containing `SKILL.md`, or
+    None if neither the packaged resource nor the repo-root fallback resolves.
 
     In a wheel install, `importlib.resources.files("visualgen_mcp") /
-    "_skill_data"` resolves to a real directory populated by hatch's
-    `force-include`. In an editable install (how `uv run pytest` sees the
-    code), `_skill_data` is not synthesized, so we fall back to walking up
-    from the package directory to the repo root's `.claude/skills/visualgen`.
+    "_skill_data"` resolves to a directory populated by hatch's
+    `force-include`. It may be a real filesystem path (unpacked wheel) or a
+    zip-backed resource (e.g. when run under `uvx`). We return the
+    `Traversable` directly — callers use only `is_dir()`, `iterdir()`,
+    `read_bytes()`, and `/`, which work uniformly across both backings.
+
+    In an editable install (how `uv run pytest` sees the code), `_skill_data`
+    is not synthesized, so we fall back to walking up from the package
+    directory to the repo root's `.claude/skills/visualgen`.
     """
     try:
         packaged = resources.files("visualgen_mcp") / "_skill_data"
     except (ModuleNotFoundError, FileNotFoundError):
         packaged = None
 
-    if packaged is not None:
-        try:
-            as_path = Path(str(packaged))
-        except (TypeError, ValueError):
-            as_path = None
-        if as_path is not None and as_path.is_dir() and (as_path / "SKILL.md").is_file():
-            return as_path
+    if packaged is not None and packaged.is_dir() and (packaged / "SKILL.md").is_file():
+        return packaged
 
-    # Editable install fallback: walk up from the package dir to the repo root.
-    # `src/visualgen_mcp/wizard.py` → repo root is two parents up from the
-    # package directory (`__file__.parent.parent.parent`).
+    # This is the editable-install fallback; packaged-resource path is the
+    # primary. Missing SKILL.md below is not an error — it means we're in a
+    # wheel install and the first branch already returned.
     pkg_dir = Path(__file__).resolve().parent
     # pkg_dir = .../src/visualgen_mcp; repo root = .../ (parent of src/)
     repo_root = pkg_dir.parent.parent
@@ -145,8 +146,14 @@ def _skill_source_path() -> Path | None:
     return None
 
 
-def _copy_tree(src: Path, dest: Path) -> None:
-    """Recursively copy `src` into `dest`, creating dirs as needed."""
+def _copy_tree(src: Traversable, dest: Path) -> None:
+    """Recursively copy `src` into `dest`, creating dirs as needed.
+
+    `src` is typed as `Traversable` so this works uniformly for both real
+    filesystem paths (`pathlib.Path`, which is structurally compatible) and
+    zip-backed packaged resources (where a plain `Path(str(...))` coercion
+    would silently break).
+    """
     if src.is_dir():
         dest.mkdir(parents=True, exist_ok=True)
         for child in src.iterdir():
@@ -175,7 +182,14 @@ def install_skill(dest_root: Path, *, overwrite: bool) -> str:
         if target.exists():
             shutil.rmtree(target)
         _copy_tree(source, target)
-    except OSError as exc:
+    except Exception as exc:
+        # Broad catch: `_copy_tree` walks a `Traversable`, which may be a
+        # zip-backed resource under `uvx`; those can raise non-OSError types
+        # (KeyError, BadZipFile, etc.) that must not crash the user's setup
+        # flow. Any failure also leaves `target` half-populated, so wipe it
+        # so the next wizard run starts from a clean slate instead of
+        # offering to "overwrite" a broken install.
+        shutil.rmtree(target, ignore_errors=True)
         return f"error:{exc}"
 
     return "installed"
@@ -258,13 +272,13 @@ def run() -> int:
     ):
         target_root = Path.cwd()
         skill_target = target_root / ".claude" / "skills" / "visualgen"
-        overwrite = True
+        proceed = True
         if skill_target.exists():
             print(f"{skill_target} already exists.")
-            overwrite = confirm("Overwrite?", default=False)
-            if not overwrite:
+            proceed = confirm("Overwrite?", default=False)
+            if not proceed:
                 print("Left existing skill untouched.\n")
-        if not skill_target.exists() or overwrite:
+        if proceed:
             result = install_skill(target_root, overwrite=True)
             if result == "installed":
                 print(f"Installed /visualgen skill at {skill_target}\n")
