@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "visualgen": {
+      "command": "uvx",
+      "args": [
+        "visualgen-mcp"
+      ]
+    }
+  }
+}
