@@ -149,3 +149,75 @@ def test_merge_mcp_json_invalid_json_returns_error(tmp_path: Path) -> None:
     assert result == "invalid"
     # File must NOT be overwritten.
     assert path.read_text() == "{ not valid json"
+
+
+def test_run_defaults_path_writes_profile_and_prints_snippet(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
+    _feed_getpass(monkeypatch, "my-key")
+    _feed(monkeypatch, ["", "", "", "", "", "n"])
+
+    exit_code = wizard.run()
+    assert exit_code == 0
+
+    from visualgen_mcp import profile as profile_mod
+
+    prof = profile_mod.load_profile()
+    assert prof is not None
+    assert prof.api_key == "my-key"
+    assert prof.output_dir == "~/visualgen-output"
+    assert prof.video_tier == "fast"
+    assert prof.image_model == "nano-banana"
+
+    out = capsys.readouterr().out
+    assert "uvx" in out and "visualgen-mcp" in out
+
+
+def test_run_merges_mcp_json_when_user_says_yes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.chdir(tmp_path)
+
+    _feed_getpass(monkeypatch, "k")
+    _feed(monkeypatch, ["", "", "", "", "", "y"])
+
+    wizard.run()
+    mcp_path = tmp_path / ".mcp.json"
+    assert mcp_path.exists()
+    data = json.loads(mcp_path.read_text())
+    assert "visualgen" in data["mcpServers"]
+
+
+def test_run_aborts_when_existing_profile_and_no_overwrite(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from visualgen_mcp import profile as profile_mod
+
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    profile_mod.save_profile(profile_mod.Profile(api_key="existing"))
+
+    _feed(monkeypatch, ["n"])
+    exit_code = wizard.run()
+    assert exit_code == 0
+
+    prof = profile_mod.load_profile()
+    assert prof is not None
+    assert prof.api_key == "existing"
+
+
+def test_run_exits_1_when_not_tty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    with pytest.raises(SystemExit) as exc:
+        wizard.run()
+    assert exc.value.code == 1

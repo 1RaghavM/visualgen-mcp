@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+from visualgen_mcp import profile as profile_mod
+
 
 def require_tty() -> None:
     """Exit 1 if stdin is not a TTY (piping, CI, etc.)."""
@@ -86,3 +88,95 @@ def merge_mcp_json(path: Path, entry: dict[str, object], *, replace: bool) -> Me
     servers["visualgen"] = entry
     path.write_text(json.dumps(data, indent=2) + "\n")
     return "added"
+
+
+VIDEO_TIER_CHOICES = ["lite", "fast", "standard"]
+IMAGE_MODEL_CHOICES = ["nano-banana", "imagen"]
+VIDEO_ASPECT_CHOICES = ["16:9", "9:16"]
+IMAGE_ASPECT_CHOICES = ["1:1", "16:9", "9:16", "4:3", "3:4"]
+
+_SNIPPET: dict[str, object] = {
+    "mcpServers": {
+        "visualgen": {
+            "command": "uvx",
+            "args": ["visualgen-mcp"],
+        }
+    }
+}
+
+
+def run() -> int:
+    """Run the interactive setup. Returns an exit code."""
+    require_tty()
+
+    path = profile_mod.config_path()
+    if path.exists() and not confirm(
+        f"Config exists at {path}. Overwrite?", default=False
+    ):
+        print("Aborted. No changes made.")
+        return 0
+
+    print("Welcome to visualgen-mcp setup.")
+    print(f"Config will be saved to {path}.\n")
+
+    print("Get a Gemini API key at https://aistudio.google.com/apikey")
+    api_key = prompt_required("Gemini API key", hidden=True)
+
+    output_dir = prompt_with_default(
+        "Output directory for generated images/videos",
+        default="~/visualgen-output",
+    )
+    video_tier = prompt_choice(
+        "Default video tier", choices=VIDEO_TIER_CHOICES, default="fast"
+    )
+    image_model = prompt_choice(
+        "Default image model", choices=IMAGE_MODEL_CHOICES, default="nano-banana"
+    )
+    video_aspect_ratio = prompt_choice(
+        "Default video aspect ratio", choices=VIDEO_ASPECT_CHOICES, default="16:9"
+    )
+    image_aspect_ratio = prompt_choice(
+        "Default image aspect ratio", choices=IMAGE_ASPECT_CHOICES, default="16:9"
+    )
+
+    profile_mod.save_profile(
+        profile_mod.Profile(
+            api_key=api_key,
+            output_dir=output_dir,
+            video_tier=video_tier,
+            image_model=image_model,
+            video_aspect_ratio=video_aspect_ratio,
+            image_aspect_ratio=image_aspect_ratio,
+        )
+    )
+    print(f"\nSaved to {path} (chmod 600)\n")
+
+    servers = _SNIPPET["mcpServers"]
+    assert isinstance(servers, dict)
+    entry = servers["visualgen"]
+    assert isinstance(entry, dict)
+
+    if confirm("Add visualgen-mcp to .mcp.json in the current directory?", default=True):
+        mcp_path = Path.cwd() / ".mcp.json"
+        result = merge_mcp_json(mcp_path, entry, replace=False)
+        if result == "skipped":
+            existing = json.loads(mcp_path.read_text())["mcpServers"]["visualgen"]
+            print(
+                f"An entry for 'visualgen' already exists:\n{json.dumps(existing, indent=2)}"
+            )
+            if confirm("Replace?", default=False):
+                result = merge_mcp_json(mcp_path, entry, replace=True)
+        if result in {"created", "added", "replaced"}:
+            print(f"{result.capitalize()} .mcp.json entry at {mcp_path}\n")
+        elif result == "invalid":
+            print(
+                f"{mcp_path} exists but isn't valid JSON. Leaving it alone. "
+                "Fix it and paste the snippet below manually.\n"
+            )
+        elif result == "skipped":
+            print("Left existing entry untouched.\n")
+
+    print("Paste this into any other MCP client config:\n")
+    print(json.dumps(_SNIPPET, indent=2))
+    print("\nDone. Run /mcp inside Claude Code to confirm the server is connected.")
+    return 0
