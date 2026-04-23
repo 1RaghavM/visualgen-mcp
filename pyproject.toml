@@ -79,7 +79,7 @@ no_implicit_optional = true
 files = ["src"]
 
 [[tool.mypy.overrides]]
-module = ["google.genai.*"]
+module = ["google.genai.*", "tomli_w"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

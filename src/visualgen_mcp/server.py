@@ -54,8 +54,8 @@ def _estimated_seconds(tier: str) -> int:
 @mcp.tool()
 def submit_video(
     prompt: str,
-    model: str = "fast",
-    aspect_ratio: str = "16:9",
+    model: str | None = None,
+    aspect_ratio: str | None = None,
     resolution: str = "720p",
     negative_prompt: str | None = None,
     image_path: str | None = None,
@@ -68,14 +68,21 @@ def submit_video(
 
     Args:
         prompt: Text description of the video to generate.
-        model: "lite" (cheapest), "fast" (default, good balance), or "standard"
-          (highest quality, most expensive). See get_pricing for rates.
-        aspect_ratio: "16:9" (landscape) or "9:16" (portrait).
+        model: "lite" (cheapest), "fast" (good balance), or "standard"
+          (highest quality, most expensive). Defaults to your configured
+          default video tier (run `visualgen-mcp init` to change).
+        aspect_ratio: "16:9" (landscape) or "9:16" (portrait). Defaults to
+          your configured default video aspect ratio.
         resolution: "720p", "1080p", or "4k". "4k" is rejected for model="lite".
         negative_prompt: Optional text describing what to avoid.
         image_path: Optional absolute path to a PNG/JPEG/WebP file to use as
           the starting frame for image-to-video generation.
     """
+    cfg = _get_config()
+    if model is None:
+        model = cfg.default_video_tier
+    if aspect_ratio is None:
+        aspect_ratio = cfg.default_video_aspect_ratio
     client = _get_client()
     try:
         submission = veo.submit(
@@ -185,8 +192,8 @@ def list_videos() -> list[dict[str, Any]]:
 @mcp.tool()
 def generate_image(
     prompt: str,
-    model: str = "nano-banana",
-    aspect_ratio: str = "16:9",
+    model: str | None = None,
+    aspect_ratio: str | None = None,
     negative_prompt: str | None = None,
 ) -> dict[str, str]:
     """Generate an image synchronously. Blocks until the file is on disk.
@@ -196,12 +203,20 @@ def generate_image(
 
     Args:
         prompt: Text description of the image to generate.
-        model: "nano-banana" (Gemini 2.5 Flash Image, the default — cheapest
-          and fastest) or "imagen" (Imagen 4, higher quality, higher cost).
-        aspect_ratio: "1:1", "16:9", "9:16", "4:3", or "3:4".
+        model: "nano-banana" (Gemini 2.5 Flash Image — cheapest and fastest)
+          or "imagen" (Imagen 4, higher quality, higher cost). Defaults to
+          your configured default image model (run `visualgen-mcp init` to
+          change).
+        aspect_ratio: "1:1", "16:9", "9:16", "4:3", or "3:4". Defaults to
+          your configured default image aspect ratio.
         negative_prompt: Optional text describing what to avoid. Ignored by
           Nano Banana; used by Imagen 4 when supplied.
     """
+    cfg = _get_config()
+    if model is None:
+        model = cfg.default_image_model
+    if aspect_ratio is None:
+        aspect_ratio = cfg.default_image_aspect_ratio
     client = _get_client()
     try:
         return imagen.generate_image(
@@ -209,7 +224,7 @@ def generate_image(
             prompt=prompt,
             model_alias=model,
             aspect_ratio=aspect_ratio,
-            output_dir=_get_config().output_dir,
+            output_dir=cfg.output_dir,
             negative_prompt=negative_prompt,
         )
     except (ValueError, RuntimeError) as exc:
