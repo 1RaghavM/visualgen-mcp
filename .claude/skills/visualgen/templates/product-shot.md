@@ -2,7 +2,7 @@
 
 **When to use.** A clean, studio-style render of a specific product on a neutral background. Goes in features pages, pricing comparison cards, social proof sections.
 
-**Defaults.** `model="imagen"` (product shots benefit from Imagen's higher fidelity and `negative_prompt` support). `aspect_ratio="1:1"` for card layouts, `4:3` for wider layouts.
+**Defaults.** `model="imagen"` (product shots benefit from Imagen's higher fidelity and `negative_prompt` support). `aspect_ratio="1:1"` for card layouts, `4:3` for wider layouts. Skipping the Nano Banana draft step from SKILL rule 7 because this use case relies on `negative_prompt`, which Nano Banana ignores.
 
 **Prompt anatomy.**
 - **Subject** — describe the product concretely. Material, color, shape, one or two distinguishing details.

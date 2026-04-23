@@ -2,7 +2,7 @@
 
 **When to use.** Open Graph or Twitter card image — the preview that shows up when someone shares a URL in Slack, iMessage, X, LinkedIn.
 
-**Defaults.** `model="imagen"`, `aspect_ratio="16:9"`. Native OG spec is 1200×630 (≈1.91:1) which neither Imagen nor Veo supports; `16:9` is the closest supported, and the platforms crop to fit, so bias the important content to the center.
+**Defaults.** `model="imagen"`, `aspect_ratio="16:9"`. Native OG spec is 1200×630 (≈1.91:1) which neither Imagen nor Veo supports; `16:9` is the closest supported, and the platforms crop to fit, so bias the important content to the center. Skipping the Nano Banana draft step from SKILL rule 7 because this use case relies on `negative_prompt` (to keep text and clutter out of the card), which Nano Banana ignores.
 
 **Prompt anatomy.**
 - **Subject** — a single visual that reads at a glance. OG cards are often seen at thumbnail size.
