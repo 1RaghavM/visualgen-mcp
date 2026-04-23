@@ -41,7 +41,7 @@ There is no free tier for Veo. You pay for every successful generation. A failed
 
 ## Install
 
-For end users (once published to PyPI):
+For end users:
 
 ```bash
 uvx visualgen-mcp
