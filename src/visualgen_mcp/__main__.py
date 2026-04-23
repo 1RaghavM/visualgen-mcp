@@ -1,16 +1,23 @@
-"""Entry point: `python -m visualgen_mcp` or `uvx visualgen-mcp`."""
+"""Entry point: `python -m visualgen_mcp`, `uvx visualgen-mcp`, or `... init`."""
 
 from __future__ import annotations
 
-from dotenv import load_dotenv
+import sys
 
-from visualgen_mcp.server import run
+from dotenv import load_dotenv
 
 
 def main() -> None:
-    """Load `.env` if present, then start the server over stdio."""
+    """Dispatch on argv: `init` runs the wizard, everything else runs the server."""
+    if len(sys.argv) > 1 and sys.argv[1] == "init":
+        from visualgen_mcp.wizard import run
+
+        raise SystemExit(run())
+
     load_dotenv()
-    run()
+    from visualgen_mcp.server import run as run_server
+
+    run_server()
 
 
 if __name__ == "__main__":
