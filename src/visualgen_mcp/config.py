@@ -68,9 +68,7 @@ class Config:
             api_key=api_key,
             output_dir=output_dir,
             default_video_tier=(prof.video_tier if prof and prof.video_tier else "fast"),
-            default_image_model=(
-                prof.image_model if prof and prof.image_model else "nano-banana"
-            ),
+            default_image_model=(prof.image_model if prof and prof.image_model else "nano-banana"),
             default_video_aspect_ratio=(
                 prof.video_aspect_ratio if prof and prof.video_aspect_ratio else "16:9"
             ),

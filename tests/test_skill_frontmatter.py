@@ -67,7 +67,9 @@ def test_skill_md_exists_with_frontmatter() -> None:
     fm = _parse_frontmatter(text)
     assert fm.get("name") == "visualgen"
     desc = fm.get("description", "")
-    assert desc.startswith("Use whenever"), f"description must start with 'Use whenever', got: {desc[:60]!r}"
+    assert desc.startswith("Use whenever"), (
+        f"description must start with 'Use whenever', got: {desc[:60]!r}"
+    )
 
 
 @pytest.mark.parametrize("name", TEMPLATE_NAMES)

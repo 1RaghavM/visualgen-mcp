@@ -200,9 +200,7 @@ def run() -> int:
     require_tty()
 
     path = profile_mod.config_path()
-    if path.exists() and not confirm(
-        f"Config exists at {path}. Overwrite?", default=False
-    ):
+    if path.exists() and not confirm(f"Config exists at {path}. Overwrite?", default=False):
         print("Aborted. No changes made.")
         return 0
 
@@ -216,9 +214,7 @@ def run() -> int:
         "Output directory for generated images/videos",
         default="~/visualgen-output",
     )
-    video_tier = prompt_choice(
-        "Default video tier", choices=VIDEO_TIER_CHOICES, default="fast"
-    )
+    video_tier = prompt_choice("Default video tier", choices=VIDEO_TIER_CHOICES, default="fast")
     image_model = prompt_choice(
         "Default image model", choices=IMAGE_MODEL_CHOICES, default="nano-banana"
     )
@@ -251,9 +247,7 @@ def run() -> int:
         result = merge_mcp_json(mcp_path, entry, replace=False)
         if result == "skipped":
             existing = json.loads(mcp_path.read_text())["mcpServers"]["visualgen"]
-            print(
-                f"An entry for 'visualgen' already exists:\n{json.dumps(existing, indent=2)}"
-            )
+            print(f"An entry for 'visualgen' already exists:\n{json.dumps(existing, indent=2)}")
             if confirm("Replace?", default=False):
                 result = merge_mcp_json(mcp_path, entry, replace=True)
         if result in {"created", "added", "replaced"}:
