@@ -43,7 +43,6 @@ Gemini API rates as of 2026-04-22. Verify at the [official pricing page](https:/
 | Imagen 4 Ultra                     | $0.06 / image                                |
 | Gemini 2.5 Flash Image (Nano Banana) | $0.039 / image                             |
 
-There is no free tier for Veo. You pay for every successful generation. A failed or filtered generation is not billed. An 8-second Veo 3.1 Standard clip at 1080p is about $3.20. Call `get_pricing` before big runs if you're not sure.
 
 ## Install
 

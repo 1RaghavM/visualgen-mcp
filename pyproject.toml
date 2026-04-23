@@ -1,6 +1,6 @@
 [project]
 name = "visualgen-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for generating images and short videos via Google's Gemini API (Imagen 4 and Veo 3.1), for use inside Claude Code."
 readme = "README.md"
 requires-python = ">=3.11"
