@@ -34,7 +34,7 @@ You are about to call any of the visualgen-mcp tools (`submit_video`, `check_vid
 3. **Don't gate cheap calls.** Veo `fast` / `lite` and every `generate_image` proceed silently. Report what you generated after the fact.
 4. **Batch gates.** If you plan to submit 2+ gated calls in one response (variations), show total cost once, gate once, submit all on confirmation.
 5. **Poll politely.** After `submit_video`, call `check_video` at ~20s intervals. Typical completion is 30–120s. Don't tight-loop.
-6. **Reference returned paths directly.** `check_video` and `generate_image` return absolute paths. Use them as-is in the code you write — don't copy, don't rename. The server put them in the user's configured `OUTPUT_DIR` on purpose.
+6. **Reference returned paths directly.** `check_video` and `generate_image` return absolute paths. Use them as-is in server-side code — don't copy, don't rename. The server put them in the user's configured `OUTPUT_DIR` on purpose. For client rendering (HTML/JSX), serve `OUTPUT_DIR` statically or symlink; see templates for wiring examples.
 7. **Iterate cheap first.** Always generate drafts at `lite` (video) or `nano-banana` (image), show the user, then re-run at higher tier only after concept approval.
 8. **On `failed`.** Read the error. If it's a content-filter rejection, rewrite the prompt (remove brand names, specific people, potentially sensitive subjects) and resubmit. Don't retry the same prompt — it will just fail again.
 
