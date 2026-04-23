@@ -243,10 +243,11 @@ def test_run_copies_skill_when_user_says_yes(
     assert (skill_root / "reference" / "prompt-anatomy.md").exists()
     assert (skill_root / "reference" / "cost-cheatsheet.md").exists()
 
-    from importlib import resources
-
-    packaged = resources.files("visualgen_mcp") / "_skill_data" / "SKILL.md"
-    assert (skill_root / "SKILL.md").read_bytes() == packaged.read_bytes()
+    # Byte-for-byte match against whichever source the wizard actually read from
+    # (packaged resource in wheel installs, repo-root fallback in editable).
+    source = wizard._skill_source_path()
+    assert source is not None
+    assert (skill_root / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()
 
 
 def test_run_skips_skill_when_user_says_no(
@@ -304,7 +305,6 @@ def test_run_skill_install_overwrites_when_confirmed(
 
     wizard.run()
 
-    from importlib import resources
-
-    packaged = resources.files("visualgen_mcp") / "_skill_data" / "SKILL.md"
-    assert (skill_root / "SKILL.md").read_bytes() == packaged.read_bytes()
+    source = wizard._skill_source_path()
+    assert source is not None
+    assert (skill_root / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()

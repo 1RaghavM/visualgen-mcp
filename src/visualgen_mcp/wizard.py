@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import getpass
 import json
+import shutil
 import sys
+from importlib import resources
 from pathlib import Path
 
 from visualgen_mcp import profile as profile_mod
@@ -105,6 +107,80 @@ _SNIPPET: dict[str, object] = {
 }
 
 
+def _skill_source_path() -> Path | None:
+    """Locate the packaged skill tree.
+
+    Returns the path to a real directory containing `SKILL.md`, or None if
+    neither the packaged resource nor the repo-root fallback resolves.
+
+    In a wheel install, `importlib.resources.files("visualgen_mcp") /
+    "_skill_data"` resolves to a real directory populated by hatch's
+    `force-include`. In an editable install (how `uv run pytest` sees the
+    code), `_skill_data` is not synthesized, so we fall back to walking up
+    from the package directory to the repo root's `.claude/skills/visualgen`.
+    """
+    try:
+        packaged = resources.files("visualgen_mcp") / "_skill_data"
+    except (ModuleNotFoundError, FileNotFoundError):
+        packaged = None
+
+    if packaged is not None:
+        try:
+            as_path = Path(str(packaged))
+        except (TypeError, ValueError):
+            as_path = None
+        if as_path is not None and as_path.is_dir() and (as_path / "SKILL.md").is_file():
+            return as_path
+
+    # Editable install fallback: walk up from the package dir to the repo root.
+    # `src/visualgen_mcp/wizard.py` → repo root is two parents up from the
+    # package directory (`__file__.parent.parent.parent`).
+    pkg_dir = Path(__file__).resolve().parent
+    # pkg_dir = .../src/visualgen_mcp; repo root = .../ (parent of src/)
+    repo_root = pkg_dir.parent.parent
+    fallback = repo_root / ".claude" / "skills" / "visualgen"
+    if fallback.is_dir() and (fallback / "SKILL.md").is_file():
+        return fallback
+
+    return None
+
+
+def _copy_tree(src: Path, dest: Path) -> None:
+    """Recursively copy `src` into `dest`, creating dirs as needed."""
+    if src.is_dir():
+        dest.mkdir(parents=True, exist_ok=True)
+        for child in src.iterdir():
+            _copy_tree(child, dest / child.name)
+    else:
+        dest.write_bytes(src.read_bytes())
+
+
+def install_skill(dest_root: Path, *, overwrite: bool) -> str:
+    """Copy the packaged skill tree to `dest_root / .claude/skills/visualgen`.
+
+    Returns a status string:
+      - "installed" on success
+      - "skipped" when dest exists and overwrite is False
+      - "error:<reason>" on any failure (missing resource, permissions, etc.)
+    """
+    target = dest_root / ".claude" / "skills" / "visualgen"
+    if target.exists() and not overwrite:
+        return "skipped"
+
+    source = _skill_source_path()
+    if source is None:
+        return "error:cannot locate packaged skill data"
+
+    try:
+        if target.exists():
+            shutil.rmtree(target)
+        _copy_tree(source, target)
+    except OSError as exc:
+        return f"error:{exc}"
+
+    return "installed"
+
+
 def run() -> int:
     """Run the interactive setup. Returns an exit code."""
     require_tty()
@@ -175,6 +251,28 @@ def run() -> int:
             )
         elif result == "skipped":
             print("Left existing entry untouched.\n")
+
+    if confirm(
+        "Install the /visualgen skill into .claude/skills/ in this project?",
+        default=True,
+    ):
+        target_root = Path.cwd()
+        skill_target = target_root / ".claude" / "skills" / "visualgen"
+        overwrite = True
+        if skill_target.exists():
+            print(f"{skill_target} already exists.")
+            overwrite = confirm("Overwrite?", default=False)
+            if not overwrite:
+                print("Left existing skill untouched.\n")
+        if not skill_target.exists() or overwrite:
+            result = install_skill(target_root, overwrite=True)
+            if result == "installed":
+                print(f"Installed /visualgen skill at {skill_target}\n")
+            elif result == "skipped":
+                print(f"Skipped: {skill_target} already exists.\n")
+            else:
+                reason = result.removeprefix("error:")
+                print(f"Could not install skill: {reason}\n")
 
     print("Paste this into any other MCP client config:\n")
     print(json.dumps(_SNIPPET, indent=2))
