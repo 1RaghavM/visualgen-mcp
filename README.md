@@ -10,7 +10,9 @@ I'm open-sourcing it because other people are solving the same problem, and nobo
 
 ## Demo
 
-[Watch a short demo](docs/demo.mp4) — Claude Code generating an image with visualgen-mcp and wiring it into the page.
+Claude Code generating visuals with visualgen-mcp and wiring them into the page.
+
+https://github.com/user-attachments/assets/bc9ed042-f528-4faf-aebd-f348e8a71d1b
 
 ## What it does
 
