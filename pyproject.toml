@@ -26,9 +26,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/raghavmehta/visualgen-mcp"
-Repository = "https://github.com/raghavmehta/visualgen-mcp"
-Issues = "https://github.com/raghavmehta/visualgen-mcp/issues"
+Homepage = "https://github.com/1RaghavM/visualgen-mcp"
+Repository = "https://github.com/1RaghavM/visualgen-mcp"
+Issues = "https://github.com/1RaghavM/visualgen-mcp/issues"
 
 [project.scripts]
 visualgen-mcp = "visualgen_mcp.__main__:main"

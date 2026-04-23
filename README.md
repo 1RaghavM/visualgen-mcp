@@ -50,7 +50,7 @@ uvx visualgen-mcp
 For contributors (from source):
 
 ```bash
-git clone https://github.com/raghavmehta/visualgen-mcp.git
+git clone https://github.com/1RaghavM/visualgen-mcp.git
 cd visualgen-mcp
 uv sync
 uv run python -m visualgen_mcp

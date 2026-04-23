@@ -7,7 +7,7 @@ Thanks for wanting to help. This is a small project. Keep changes small too.
 You need [uv](https://docs.astral.sh/uv/). Then:
 
 ```bash
-git clone https://github.com/raghavmehta/visualgen-mcp.git
+git clone https://github.com/1RaghavM/visualgen-mcp.git
 cd visualgen-mcp
 uv sync --dev
 ```
