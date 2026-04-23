@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 
 import pytest
@@ -85,3 +86,41 @@ def test_load_profile_malformed_raises_with_path(tmp_path: Path) -> None:
     p.write_text("this = is = not = toml")
     with pytest.raises(ValueError, match=str(p)):
         profile.load_profile(p)
+
+
+def test_save_profile_roundtrip(tmp_path: Path) -> None:
+    p = tmp_path / "sub" / "config.toml"
+    prof = profile.Profile(
+        api_key="rt-key",
+        output_dir="/out",
+        video_tier="fast",
+        image_model="nano-banana",
+        video_aspect_ratio="16:9",
+        image_aspect_ratio="16:9",
+    )
+    profile.save_profile(prof, p)
+    loaded = profile.load_profile(p)
+    assert loaded == prof
+
+
+def test_save_profile_file_permissions_0600(tmp_path: Path) -> None:
+    p = tmp_path / "config.toml"
+    profile.save_profile(profile.Profile(api_key="k"), p)
+    mode = stat.S_IMODE(p.stat().st_mode)
+    assert mode == 0o600
+
+
+def test_save_profile_parent_dir_permissions_0700(tmp_path: Path) -> None:
+    p = tmp_path / "visualgen-mcp" / "config.toml"
+    profile.save_profile(profile.Profile(api_key="k"), p)
+    mode = stat.S_IMODE(p.parent.stat().st_mode)
+    assert mode == 0o700
+
+
+def test_save_profile_omits_none_fields(tmp_path: Path) -> None:
+    p = tmp_path / "config.toml"
+    profile.save_profile(profile.Profile(api_key="only-key"), p)
+    contents = p.read_text()
+    assert "api_key" in contents
+    assert "output_dir" not in contents
+    assert "[defaults]" not in contents

@@ -7,6 +7,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+import tomli_w
+
 
 @dataclass(frozen=True)
 class Profile:
@@ -49,3 +51,32 @@ def load_profile(path: Path | None = None) -> Profile | None:
         video_aspect_ratio=defaults.get("video_aspect_ratio"),
         image_aspect_ratio=defaults.get("image_aspect_ratio"),
     )
+
+
+def save_profile(prof: Profile, path: Path | None = None) -> None:
+    """Write the profile to disk with dir chmod 0700 and file chmod 0600."""
+    target = path if path is not None else config_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(target.parent, 0o700)
+
+    data: dict[str, object] = {}
+    if prof.api_key is not None:
+        data["api_key"] = prof.api_key
+    if prof.output_dir is not None:
+        data["output_dir"] = prof.output_dir
+
+    defaults: dict[str, object] = {}
+    if prof.video_tier is not None:
+        defaults["video_tier"] = prof.video_tier
+    if prof.image_model is not None:
+        defaults["image_model"] = prof.image_model
+    if prof.video_aspect_ratio is not None:
+        defaults["video_aspect_ratio"] = prof.video_aspect_ratio
+    if prof.image_aspect_ratio is not None:
+        defaults["image_aspect_ratio"] = prof.image_aspect_ratio
+    if defaults:
+        data["defaults"] = defaults
+
+    with target.open("wb") as f:
+        tomli_w.dump(data, f)
+    os.chmod(target, 0o600)
