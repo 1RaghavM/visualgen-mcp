@@ -219,6 +219,34 @@ No parameters. Returns a dict of current rates per model, a `last_updated` date,
 - Nano Banana (`gemini-2.5-flash-image`) is faster and cheaper than Imagen 4 but does not accept a `negative_prompt`. Use Imagen 4 when you need one.
 - `list_videos` and `list_images` only see files in `OUTPUT_DIR`. They do not recurse or cross directories.
 
+## Engineering decisions
+
+- **Async video jobs.** Veo generation takes tens of seconds, so `submit_video` returns a `job_id` immediately and `check_video` polls and downloads on completion, instead of blocking the MCP call.
+- **Files land in the project.** Tools return absolute paths inside `OUTPUT_DIR` so the agent can reference generated assets directly in the code it is writing.
+- **Profile + per-project overrides.** `visualgen-mcp init` writes `~/.config/visualgen-mcp/config.toml` (chmod 600); `GEMINI_API_KEY` / `OUTPUT_DIR` in `.env` or `.mcp.json` take precedence.
+- **Cost awareness.** `get_pricing` returns hardcoded rates, and the bundled `/visualgen` skill asks for confirmation before Veo `standard` or image-to-video calls.
+- **Local stdio only.** No HTTP or auth layer; the server is intended for local MCP clients.
+
+## Testing
+
+CI (`.github/workflows/ci.yml`) runs on Python 3.11 and 3.12:
+
+```bash
+uv sync --dev
+uv run ruff check
+uv run ruff format --check
+uv run mypy src/
+uv run pytest -q
+```
+
+Integration tests in `tests/integration/` call the real Gemini API, cost money, and are **not** run in CI. See [tests/integration/README.md](tests/integration/README.md).
+
+## Status
+
+- **Implemented:** the six MCP tools (Veo 3.1 video jobs, Imagen 4 / Nano Banana images, listing, pricing), the `init` profile wizard, and the `/visualgen` Claude Code skill.
+- **Experimental / limitations:** the job store is in-memory (pending jobs are lost on restart); pricing is hardcoded as of 2026-04-22.
+- **Planned:** SQLite-backed job store (see the TODO in `src/visualgen_mcp/jobs.py`).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
